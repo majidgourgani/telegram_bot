@@ -31,7 +31,7 @@ def home(request: Request, user: str = Depends(require_user)):
         "token_ready": token_ready,
         "channel_set": bool(cfg.get("channel_id")),
         "require_membership": cfg.get("require_membership", True),
-        "require_consent": cfg.get("require_consent", True),
+        "send_start_image": cfg.get("send_start_image", True),
     }
     return render(
         request,

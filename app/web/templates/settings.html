@@ -10,7 +10,7 @@
   {% for group, items in groups.items() %}
   <section class="card">
     <h3>{{ group|capitalize }}</h3>
-    {% for item in items if item.key not in ['completion_file_path', 'start_image_path'] %}
+    {% for item in items if item.key != 'start_image_path' %}
     <div class="field">
       <label for="f-{{ item.key }}">{{ item.label }}</label>
       {% if item.value_type == 'bool' %}
@@ -53,14 +53,12 @@
     <p class="field-hint">No start image set.</p>
   {% endif %}
   <div class="inline-form">
-    <form method="post" action="/settings/upload" enctype="multipart/form-data" class="inline-form">
-      <input type="hidden" name="target" value="start_image" />
+    <form method="post" action="/settings/start-image/upload" enctype="multipart/form-data" class="inline-form">
       <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif" required />
       <button class="btn" type="submit">Upload start image</button>
     </form>
     {% if start and start[0].value %}
-    <form method="post" action="/settings/clear-file">
-      <input type="hidden" name="target" value="start_image" />
+    <form method="post" action="/settings/start-image/clear">
       <button class="btn ghost danger" type="submit">Remove</button>
     </form>
     {% endif %}
@@ -68,31 +66,44 @@
 </section>
 
 <section class="card">
-  <h3>Completion file</h3>
-  <p class="hint">Sent to users after they finish the test. Any file works — images are sent as photos, everything else as a document (max 45&nbsp;MB). Toggle it under <em>Features → Send file on completion</em>.</p>
-  {% set comp = content_items | selectattr('key', 'equalto', 'completion_file_path') | list %}
-  {% if comp and comp[0].value %}
-    {% set fname = comp[0].value.split('/')[-1] %}
+  <h3>Completion files</h3>
+  <p class="hint">Sent to users after they finish the test, in order. Add as many as you like — images are sent as photos, everything else as a document (max 45&nbsp;MB each). Toggle sending under <em>Features → Send files on completion</em>.</p>
+
+  {% if completion_files %}
+  <div class="file-list">
+    {% for f in completion_files %}
+    {% set fname = f.path.split('/')[-1] %}
     {% set ext = ('.' + fname.rsplit('.', 1)[-1]) | lower if '.' in fname else '' %}
-    {% if ext in is_image %}
-      <img class="preview" src="/uploads/{{ fname }}" alt="Completion file" onerror="this.style.display='none'" />
-    {% endif %}
-    <p class="field-hint">Current: <a href="/uploads/{{ fname }}" target="_blank"><code>{{ fname }}</code></a></p>
-  {% else %}
-    <p class="field-hint">No completion file set.</p>
-  {% endif %}
-  <div class="inline-form">
-    <form method="post" action="/settings/upload" enctype="multipart/form-data" class="inline-form">
-      <input type="hidden" name="target" value="completion_file" />
-      <input type="file" name="file" required />
-      <button class="btn" type="submit">Upload completion file</button>
-    </form>
-    {% if comp and comp[0].value %}
-    <form method="post" action="/settings/clear-file">
-      <input type="hidden" name="target" value="completion_file" />
-      <button class="btn ghost danger" type="submit">Remove</button>
-    </form>
-    {% endif %}
+    <div class="file-row {{ '' if f.is_active else 'inactive' }}">
+      <div class="file-thumb">
+        {% if ext in is_image %}
+          <img src="/uploads/{{ fname }}" alt="" onerror="this.style.display='none'" />
+        {% else %}
+          <span class="file-ext">{{ ext[1:] | upper or 'FILE' }}</span>
+        {% endif %}
+      </div>
+      <form method="post" action="/settings/completion-files/{{ f.id }}/update" class="file-main">
+        <a href="/uploads/{{ fname }}" target="_blank" class="file-name">{{ f.original_name or fname }}</a>
+        <input type="text" name="caption" value="{{ f.caption }}" placeholder="Caption (optional)" />
+        <label class="check"><input type="checkbox" name="is_active" {{ 'checked' if f.is_active }} /> Active</label>
+        <button class="btn tiny" type="submit">Save</button>
+      </form>
+      <div class="file-actions">
+        <form method="post" action="/settings/completion-files/{{ f.id }}/move"><input type="hidden" name="direction" value="-1"><button class="btn tiny ghost" title="Move up">▲</button></form>
+        <form method="post" action="/settings/completion-files/{{ f.id }}/move"><input type="hidden" name="direction" value="1"><button class="btn tiny ghost" title="Move down">▼</button></form>
+        <form method="post" action="/settings/completion-files/{{ f.id }}/delete" onsubmit="return confirm('Delete this file?')"><button class="btn tiny danger">✕</button></form>
+      </div>
+    </div>
+    {% endfor %}
   </div>
+  {% else %}
+  <p class="field-hint">No completion files yet.</p>
+  {% endif %}
+
+  <form method="post" action="/settings/completion-files/upload" enctype="multipart/form-data" class="inline-form">
+    <input type="file" name="file" required />
+    <input type="text" name="caption" placeholder="Caption (optional)" />
+    <button class="btn primary" type="submit">Add completion file</button>
+  </form>
 </section>
 {% endblock %}

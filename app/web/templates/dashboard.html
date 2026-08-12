@@ -38,8 +38,8 @@
       Membership check {{ 'on' if status.require_membership else 'off' }}
     </li>
     <li>
-      <span class="dot {{ 'ok' if status.require_consent else 'muted' }}"></span>
-      Consent step {{ 'on' if status.require_consent else 'off' }}
+      <span class="dot {{ 'ok' if status.send_start_image else 'muted' }}"></span>
+      Start image {{ 'on' if status.send_start_image else 'off' }}
     </li>
   </ul>
   <p class="hint">Content and toggle changes apply to the bot immediately. Changing the

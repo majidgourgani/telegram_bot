@@ -29,15 +29,6 @@ def join_keyboard(channel_link: str) -> InlineKeyboardMarkup:
     )
 
 
-def consent_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("موافقم و ادامه می‌دهم", callback_data="give_consent")],
-            [InlineKeyboardButton("لغو", callback_data="cancel_registration")],
-        ]
-    )
-
-
 def question_keyboard(options: list[dict[str, Any]]) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(option["label"], callback_data=f"answer:{option['score']}")

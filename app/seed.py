@@ -76,13 +76,9 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
             "true", "bool", "Require channel membership", "features",
             "If on, users must join the channel before taking the test.",
         ),
-        "require_consent": (
-            "true", "bool", "Require explicit consent", "features",
-            "If on, users must accept the data-use notice before registering.",
-        ),
         "send_completion_file": (
-            "true", "bool", "Send file on completion", "features",
-            "Send the uploaded completion file (image or document) after the test.",
+            "true", "bool", "Send files on completion", "features",
+            "Send the uploaded completion files (images/documents) after the test.",
         ),
         "send_start_image": (
             "true", "bool", "Show image on welcome", "features",
@@ -102,31 +98,15 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
             "اگر آماده‌ای، اسکن مالی‌ات رو شروع کنیم 👇🏻",
             "text", "Welcome message", "content", "",
         ),
-        "data_use_purpose": (
-            "برای بررسی وضعیت مالی و ارائه محتوای مرتبط با مدیریت مالی",
-            "text", "Data-use purpose", "content", "",
-        ),
         "join_text": (
             "برای شروع تست، ابتدا باید عضو کانال شوید:\n\n{channel_link}\n\n"
             "بعد از عضویت، روی گزینه «عضو شدم؛ بررسی مجدد» بزنید.",
             "text", "Join prompt", "content",
             "Use {channel_link} as a placeholder for the invite link.",
         ),
-        "consent_text": (
-            "برای دریافت تست و آموزش، شما باید نام، نام خانوادگی و شماره تلفن خود را به‌صورت دستی وارد کنید.\n\n"
-            "اطلاعات پروفایل تلگرام شما استفاده نخواهد شد.\n\n"
-            "پاسخ‌های شما برای ارزیابی وضعیت مالی ذخیره می‌شود و {data_use_purpose}.\n\n"
-            "اگر موافق هستید، روی گزینه زیر بزنید.",
-            "text", "Consent notice", "content",
-            "Placeholders: {data_use_purpose}.",
-        ),
-        "ask_first_name_text": (
-            "لطفاً نام کوچک خود را به‌صورت دستی وارد کنید.\n\nنام پروفایل تلگرام شما استفاده نمی‌شود.",
-            "text", "Ask first name", "content", "",
-        ),
-        "ask_last_name_text": (
-            "لطفاً نام خانوادگی خود را به‌صورت دستی وارد کنید.\n\nاگر نام خانوادگی ندارید، یک خط تیره وارد کنید.",
-            "text", "Ask last name", "content", "",
+        "ask_name_text": (
+            "لطفاً نام و نام خانوادگی خود را وارد کنید.",
+            "text", "Ask full name", "content", "",
         ),
         "ask_phone_text": (
             "لطفاً شماره تلفن خود را به‌صورت دستی وارد کنید.\n\nمثال:\n+491234567890",
@@ -140,14 +120,6 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
             "این ارزیابی یک ابزار اولیه است و جایگزین مشاوره تخصصی مالی نیست.",
             "text", "Result disclaimer", "content", "",
         ),
-        "completion_caption": (
-            "مینی‌دوره آزمایشی شما 🎁",
-            "text", "Completion file caption", "content", "",
-        ),
-        "completion_file_path": (
-            "", "text", "Completion file", "content",
-            "Set automatically when you upload a file on the Settings page.",
-        ),
         "start_image_path": (
             _bundled_start_image(), "text", "Start image", "content",
             "Set automatically when you upload a start image on the Settings page.",
@@ -158,8 +130,42 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
 # Deprecated settings keys -> their replacement, for in-place migration.
 _RENAMED_SETTINGS = {
     "send_completion_image": "send_completion_file",
-    "completion_image_path": "completion_file_path",
 }
+
+# Deprecated settings keys to drop entirely (consent + old name/file fields).
+_REMOVED_SETTINGS = {
+    "require_consent",
+    "consent_text",
+    "data_use_purpose",
+    "ask_first_name_text",
+    "ask_last_name_text",
+    "completion_caption",
+    "completion_file_path",
+    "completion_image_path",
+}
+
+
+def _migrate_completion_file(session, rows) -> None:
+    """Move a legacy single completion file setting into the new table."""
+    from app.models import CompletionFile
+
+    if session.query(CompletionFile).count() > 0:
+        return
+    legacy = rows.get("completion_file_path") or rows.get("completion_image_path")
+    path = legacy.value.strip() if legacy is not None else ""
+    if not path:
+        return
+    caption_row = rows.get("completion_caption")
+    caption = caption_row.value if caption_row is not None else ""
+    session.add(
+        CompletionFile(
+            path=path,
+            original_name=path.rsplit("/", 1)[-1],
+            caption=caption,
+            order=1,
+            is_active=True,
+        )
+    )
 
 
 def seed_defaults() -> None:
@@ -194,7 +200,10 @@ def seed_defaults() -> None:
         defaults = _default_settings()
         rows = {s.key: s for s in session.query(Setting).all()}
 
-        # 1) Migrate any deprecated keys to their replacement, preserving values.
+        # 1) Migrate the legacy single completion file into the new table.
+        _migrate_completion_file(session, rows)
+
+        # 2) Rename any deprecated keys to their replacement, preserving values.
         for old_key, new_key in _RENAMED_SETTINGS.items():
             old_row = rows.get(old_key)
             if old_row is None:
@@ -214,7 +223,13 @@ def seed_defaults() -> None:
             session.delete(old_row)
             rows.pop(old_key, None)
 
-        # 2) Insert any missing keys, keeping existing values untouched.
+        # 3) Drop deprecated keys that no longer exist.
+        for dead_key in _REMOVED_SETTINGS:
+            dead_row = rows.pop(dead_key, None)
+            if dead_row is not None:
+                session.delete(dead_row)
+
+        # 4) Insert any missing keys, keeping existing values untouched.
         for key, (value, vtype, label, group, desc) in defaults.items():
             if key not in rows:
                 session.add(

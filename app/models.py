@@ -154,6 +154,20 @@ class ResponseAreaScore(Base):
     response: Mapped[Response] = relationship(back_populates="area_scores")
 
 
+class CompletionFile(Base):
+    """A file sent to the user after finishing the test. Multiple are allowed."""
+
+    __tablename__ = "completion_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    path: Mapped[str] = mapped_column(Text)
+    original_name: Mapped[str] = mapped_column(String(200), default="")
+    caption: Mapped[str] = mapped_column(Text, default="")
+    order: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class Event(Base):
     """Lightweight funnel event: start_test / consent / complete."""
 
