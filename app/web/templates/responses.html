@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Responses{% endblock %}
+{% block heading %}Responses{% endblock %}
+{% block actions %}
+  <a class="btn" href="/responses/export.csv">Export CSV</a>
+  <a class="btn" href="/responses/export.xlsx">Export Excel</a>
+{% endblock %}
+{% block content %}
+
+<form class="toolbar" method="get" action="/responses">
+  <input type="search" name="q" value="{{ q }}" placeholder="Search name or phone…" />
+  <button class="btn" type="submit">Search</button>
+  {% if q %}<a class="btn ghost" href="/responses">Clear</a>{% endif %}
+  <span class="spacer"></span>
+  <span class="muted">{{ total }} total</span>
+</form>
+
+<div class="card table-card">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Phone</th>
+        {% for a in areas %}<th>{{ a.name }}</th>{% endfor %}
+        <th>Date (UTC)</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in table %}
+      <tr>
+        <td class="muted">{{ item.row.id }}</td>
+        <td><a href="/responses/{{ item.row.id }}">{{ item.row.first_name }} {{ item.row.last_name }}</a></td>
+        <td dir="ltr">{{ item.row.phone_number }}</td>
+        {% for a in areas %}
+          <td>{% if a.slug in item.scores %}{{ '%.2f'|format(item.scores[a.slug]) }}{% else %}—{% endif %}</td>
+        {% endfor %}
+        <td class="muted">{{ item.row.created_at|dt }}</td>
+        <td><a class="link" href="/responses/{{ item.row.id }}">View</a></td>
+      </tr>
+      {% else %}
+      <tr><td colspan="{{ 5 + areas|length }}" class="empty">No responses yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total_pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}<a class="btn ghost" href="/responses?page={{ page - 1 }}{% if q %}&q={{ q }}{% endif %}">← Prev</a>{% endif %}
+  <span class="muted">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="btn ghost" href="/responses?page={{ page + 1 }}{% if q %}&q={{ q }}{% endif %}">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

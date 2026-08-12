@@ -1,0 +1,32 @@
+# Two services — bot and web — sharing one SQLite database via a named volume.
+# Either can restart independently.
+
+services:
+  web:
+    build: .
+    command: uvicorn app.web.main:app --host 0.0.0.0 --port 8000
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:////data/app.db
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - app-data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  bot:
+    build: .
+    command: python run_bot.py
+    env_file: .env
+    environment:
+      DATABASE_URL: sqlite:////data/app.db
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - app-data:/data
+    restart: unless-stopped
+    depends_on:
+      - web
+
+volumes:
+  app-data:

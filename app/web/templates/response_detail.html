@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Response #{{ r.id }}{% endblock %}
+{% block heading %}Response #{{ r.id }}{% endblock %}
+{% block actions %}
+  <a class="btn ghost" href="/responses">← Back</a>
+  <form method="post" action="/responses/{{ r.id }}/delete" onsubmit="return confirm('Delete this response permanently?')">
+    <button class="btn danger" type="submit">Delete</button>
+  </form>
+{% endblock %}
+{% block content %}
+
+<section class="card">
+  <h3>Contact</h3>
+  <dl class="kv">
+    <dt>Name</dt><dd>{{ r.first_name }} {{ r.last_name }}</dd>
+    <dt>Phone</dt><dd dir="ltr">{{ r.phone_number }}</dd>
+    <dt>Telegram</dt><dd>{% if r.telegram_username %}@{{ r.telegram_username }}{% else %}—{% endif %} ({{ r.telegram_user_id or '—' }})</dd>
+    <dt>Submitted</dt><dd>{{ r.created_at|dt('%Y-%m-%d %H:%M UTC') }}</dd>
+  </dl>
+</section>
+
+<section class="card">
+  <h3>Area scores</h3>
+  <div class="score-row">
+    {% for s in r.area_scores %}
+    <div class="score-pill">
+      <span class="score-name">{{ s.area_name }}</span>
+      <span class="score-num">{{ '%.2f'|format(s.score) }}<small>/10</small></span>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card table-card">
+  <h3>Answers</h3>
+  <table>
+    <thead><tr><th>#</th><th>Question</th><th>Area</th><th>Answer</th><th>Score</th></tr></thead>
+    <tbody>
+      {% for a in r.answers %}
+      <tr>
+        <td class="muted">{{ loop.index }}</td>
+        <td>{{ a.question_text }}</td>
+        <td class="muted">{{ a.area_slug }}</td>
+        <td>{{ a.label }}</td>
+        <td>{{ a.score }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

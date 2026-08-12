@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block anon %}
+<div class="login-wrap">
+  <form class="login-card" method="post" action="/login">
+    <div class="login-brand"><span class="brand-mark">₣</span> Financial Scan</div>
+    <h2>Admin sign in</h2>
+    {% if error %}<p class="alert error">{{ error }}</p>{% endif %}
+    <label>Username
+      <input type="text" name="username" autocomplete="username" required autofocus />
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="current-password" required />
+    </label>
+    <button type="submit" class="btn primary full">Sign in</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Dashboard{% endblock %} · Financial Scan</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% if user %}
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">₣</span>
+        <span class="brand-name">Financial Scan</span>
+      </div>
+      <nav>
+        <a href="/" class="{{ 'active' if active == 'dashboard' }}">Overview</a>
+        <a href="/responses" class="{{ 'active' if active == 'responses' }}">Responses</a>
+        <a href="/questions" class="{{ 'active' if active == 'questions' }}">Questions &amp; Content</a>
+        <a href="/settings" class="{{ 'active' if active == 'settings' }}">Settings</a>
+        <a href="/analytics" class="{{ 'active' if active == 'analytics' }}">Analytics</a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="who">{{ user }}</span>
+        <a href="/logout" class="logout">Log out</a>
+      </div>
+    </aside>
+    <main class="content">
+      <header class="page-head">
+        <h1>{% block heading %}{% endblock %}</h1>
+        <div class="page-actions">{% block actions %}{% endblock %}</div>
+      </header>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+  {% else %}
+    {% block anon %}{% endblock %}
+  {% endif %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+{% block heading %}Analytics{% endblock %}
+{% block actions %}
+  <div class="range-tabs">
+    {% for d in [7, 30, 90, 365] %}
+      <a class="tab {{ 'active' if days == d }}" href="/analytics?days={{ d }}">{{ d }}d</a>
+    {% endfor %}
+  </div>
+{% endblock %}
+{% block content %}
+
+<section class="cards">
+  <div class="card stat"><span class="stat-label">Total responses</span><span class="stat-value">{{ summary.total }}</span></div>
+  <div class="card stat"><span class="stat-label">In last {{ summary.days }} days</span><span class="stat-value">{{ summary.recent }}</span></div>
+  <div class="card stat"><span class="stat-label">Completion rate</span><span class="stat-value">{{ summary.completion_rate }}%</span></div>
+  <div class="card stat"><span class="stat-label">Started tests</span><span class="stat-value">{{ summary.funnel.get('start_test', 0) }}</span></div>
+</section>
+
+<div class="grid-2">
+  <section class="card">
+    <h3>Responses over time</h3>
+    <canvas id="dailyChart" height="140"></canvas>
+  </section>
+  <section class="card">
+    <h3>Average score by area</h3>
+    <canvas id="areaChart" height="140"></canvas>
+  </section>
+</div>
+
+<section class="card">
+  <h3>Funnel</h3>
+  <canvas id="funnelChart" height="90"></canvas>
+</section>
+
+<script id="analytics-data" type="application/json">
+{
+  "daily": {{ summary.daily | tojson }},
+  "areas": {{ summary.area_averages | tojson }},
+  "funnel": {
+    "started": {{ summary.funnel.get('start_test', 0) }},
+    "consented": {{ summary.funnel.get('consent', 0) }},
+    "completed": {{ summary.funnel.get('complete', 0) }}
+  }
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/analytics.js"></script>
+{% endblock %}

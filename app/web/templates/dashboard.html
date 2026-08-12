@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block heading %}Overview{% endblock %}
+{% block content %}
+
+<section class="cards">
+  <div class="card stat">
+    <span class="stat-label">Total responses</span>
+    <span class="stat-value">{{ cards.total }}</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Last 30 days</span>
+    <span class="stat-value">{{ cards.recent }}</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Completion rate</span>
+    <span class="stat-value">{{ cards.completion_rate }}%</span>
+  </div>
+  <div class="card stat">
+    <span class="stat-label">Active questions</span>
+    <span class="stat-value">{{ cards.questions }}</span>
+  </div>
+</section>
+
+<section class="card">
+  <h3>Bot status</h3>
+  <ul class="status-list">
+    <li>
+      <span class="dot {{ 'ok' if status.token_ready else 'bad' }}"></span>
+      Bot token {{ 'configured' if status.token_ready else 'missing — set it in Settings' }}
+    </li>
+    <li>
+      <span class="dot {{ 'ok' if status.channel_set else 'warn' }}"></span>
+      Channel {{ 'configured' if status.channel_set else 'not set' }}
+    </li>
+    <li>
+      <span class="dot {{ 'ok' if status.require_membership else 'muted' }}"></span>
+      Membership check {{ 'on' if status.require_membership else 'off' }}
+    </li>
+    <li>
+      <span class="dot {{ 'ok' if status.require_consent else 'muted' }}"></span>
+      Consent step {{ 'on' if status.require_consent else 'off' }}
+    </li>
+  </ul>
+  <p class="hint">Content and toggle changes apply to the bot immediately. Changing the
+  <strong>bot token</strong> requires restarting the bot process.</p>
+</section>
+
+<section class="card">
+  <h3>Quick links</h3>
+  <div class="quick-links">
+    <a class="btn" href="/responses">View responses</a>
+    <a class="btn" href="/questions">Edit questions</a>
+    <a class="btn" href="/settings">Bot settings</a>
+    <a class="btn" href="/analytics">Analytics</a>
+  </div>
+</section>
+{% endblock %}

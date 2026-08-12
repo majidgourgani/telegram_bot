@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Questions &amp; Content{% endblock %}
+{% block heading %}Questions &amp; Content{% endblock %}
+{% block content %}
+
+<section class="card">
+  <h3>Answer options</h3>
+  <p class="hint">These options appear under every question. Score drives the area averages.</p>
+  <div class="option-rows">
+    {% for o in options %}
+    <div class="option-row {{ '' if o.is_active else 'inactive' }}">
+      <form method="post" action="/questions/options/{{ o.id }}/update" class="inline-form grow">
+        <input type="text" name="label" value="{{ o.label }}" required />
+        <input type="number" name="score" value="{{ o.score }}" class="narrow" required />
+        <label class="check"><input type="checkbox" name="is_active" {{ 'checked' if o.is_active }} /> Active</label>
+        <button class="btn tiny" type="submit">Save</button>
+      </form>
+      <form method="post" action="/questions/options/{{ o.id }}/delete" onsubmit="return confirm('Delete this option?')">
+        <button class="btn tiny danger" type="submit">✕</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  <form method="post" action="/questions/options/create" class="inline-form">
+    <input type="text" name="label" placeholder="New option label" required />
+    <input type="number" name="score" placeholder="Score" required />
+    <button class="btn" type="submit">Add option</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Areas</h3>
+  <p class="hint">Scoring dimensions. Deleting an area also deletes its questions.</p>
+  <div class="chips">
+    {% for a in areas %}
+    <span class="chip">
+      {{ a.name }} <code>{{ a.slug }}</code>
+      <form method="post" action="/questions/areas/{{ a.id }}/delete" onsubmit="return confirm('Delete area “{{ a.name }}” and its questions?')">
+        <button class="chip-x" type="submit">✕</button>
+      </form>
+    </span>
+    {% endfor %}
+  </div>
+  <form method="post" action="/questions/areas/create" class="inline-form">
+    <input type="text" name="name" placeholder="Area name (e.g. کنترل مالی)" required />
+    <input type="text" name="slug" placeholder="slug (e.g. control)" required />
+    <button class="btn" type="submit">Add area</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Questions <span class="muted">({{ questions|length }})</span></h3>
+
+  <form method="post" action="/questions/create" class="inline-form add-question">
+    <select name="area_id" required>
+      {% for a in areas %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+    </select>
+    <input type="text" name="text" placeholder="New question text" required />
+    <button class="btn primary" type="submit">Add question</button>
+  </form>
+
+  <ol class="question-list">
+    {% for q in questions %}
+    <li class="question-item {{ '' if q.is_active else 'inactive' }}">
+      <form method="post" action="/questions/{{ q.id }}/update" class="question-edit">
+        <textarea name="text" rows="2" dir="rtl">{{ q.text }}</textarea>
+        <div class="question-controls">
+          <select name="area_id">
+            {% for a in areas %}
+              <option value="{{ a.id }}" {{ 'selected' if a.id == q.area_id }}>{{ a.name }}</option>
+            {% endfor %}
+          </select>
+          <label class="check"><input type="checkbox" name="is_active" {{ 'checked' if q.is_active }} /> Active</label>
+          <button class="btn tiny" type="submit">Save</button>
+        </div>
+      </form>
+      <div class="question-side">
+        <form method="post" action="/questions/{{ q.id }}/move"><input type="hidden" name="direction" value="-1"><button class="btn tiny ghost" title="Move up">▲</button></form>
+        <form method="post" action="/questions/{{ q.id }}/move"><input type="hidden" name="direction" value="1"><button class="btn tiny ghost" title="Move down">▼</button></form>
+        <form method="post" action="/questions/{{ q.id }}/delete" onsubmit="return confirm('Delete this question?')"><button class="btn tiny danger">✕</button></form>
+      </div>
+    </li>
+    {% else %}
+    <li class="empty">No questions yet — add one above.</li>
+    {% endfor %}
+  </ol>
+</section>
+{% endblock %}
