@@ -4,12 +4,13 @@
 {% block content %}
 
 {% if saved %}<p class="alert ok">Saved.</p>{% endif %}
+{% if error %}<p class="alert error">{{ error }}</p>{% endif %}
 
 <form method="post" action="/settings">
   {% for group, items in groups.items() %}
   <section class="card">
     <h3>{{ group|capitalize }}</h3>
-    {% for item in items %}
+    {% for item in items if item.key not in ['completion_file_path', 'start_image_path'] %}
     <div class="field">
       <label for="f-{{ item.key }}">{{ item.label }}</label>
       {% if item.value_type == 'bool' %}
@@ -38,17 +39,60 @@
   </div>
 </form>
 
+{% set content_items = groups.get('content', []) %}
+{% set is_image = ['.jpg', '.jpeg', '.png', '.webp', '.gif'] %}
+
 <section class="card">
-  <h3>Completion image</h3>
-  <p class="hint">Sent to users after they finish the test (JPEG / PNG / WebP).</p>
-  {% set img = groups.get('content', []) | selectattr('key', 'equalto', 'completion_image_path') | list %}
-  {% if img and img[0].value %}
-    <img class="preview" src="/uploads/{{ img[0].value.split('/')[-1] }}" alt="Completion image" onerror="this.style.display='none'" />
-    <p class="field-hint">Current: <code>{{ img[0].value }}</code></p>
+  <h3>Start image</h3>
+  <p class="hint">Shown with the welcome message (JPEG / PNG / WebP / GIF). Toggle it under <em>Features → Show image on welcome</em>.</p>
+  {% set start = content_items | selectattr('key', 'equalto', 'start_image_path') | list %}
+  {% if start and start[0].value %}
+    <img class="preview" src="/uploads/{{ start[0].value.split('/')[-1] }}" alt="Start image" onerror="this.style.display='none'" />
+    <p class="field-hint">Current: <code>{{ start[0].value.split('/')[-1] }}</code></p>
+  {% else %}
+    <p class="field-hint">No start image set.</p>
   {% endif %}
-  <form method="post" action="/settings/upload-image" enctype="multipart/form-data" class="inline-form">
-    <input type="file" name="file" accept="image/png,image/jpeg,image/webp" required />
-    <button class="btn" type="submit">Upload image</button>
-  </form>
+  <div class="inline-form">
+    <form method="post" action="/settings/upload" enctype="multipart/form-data" class="inline-form">
+      <input type="hidden" name="target" value="start_image" />
+      <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif" required />
+      <button class="btn" type="submit">Upload start image</button>
+    </form>
+    {% if start and start[0].value %}
+    <form method="post" action="/settings/clear-file">
+      <input type="hidden" name="target" value="start_image" />
+      <button class="btn ghost danger" type="submit">Remove</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+
+<section class="card">
+  <h3>Completion file</h3>
+  <p class="hint">Sent to users after they finish the test. Any file works — images are sent as photos, everything else as a document (max 45&nbsp;MB). Toggle it under <em>Features → Send file on completion</em>.</p>
+  {% set comp = content_items | selectattr('key', 'equalto', 'completion_file_path') | list %}
+  {% if comp and comp[0].value %}
+    {% set fname = comp[0].value.split('/')[-1] %}
+    {% set ext = ('.' + fname.rsplit('.', 1)[-1]) | lower if '.' in fname else '' %}
+    {% if ext in is_image %}
+      <img class="preview" src="/uploads/{{ fname }}" alt="Completion file" onerror="this.style.display='none'" />
+    {% endif %}
+    <p class="field-hint">Current: <a href="/uploads/{{ fname }}" target="_blank"><code>{{ fname }}</code></a></p>
+  {% else %}
+    <p class="field-hint">No completion file set.</p>
+  {% endif %}
+  <div class="inline-form">
+    <form method="post" action="/settings/upload" enctype="multipart/form-data" class="inline-form">
+      <input type="hidden" name="target" value="completion_file" />
+      <input type="file" name="file" required />
+      <button class="btn" type="submit">Upload completion file</button>
+    </form>
+    {% if comp and comp[0].value %}
+    <form method="post" action="/settings/clear-file">
+      <input type="hidden" name="target" value="completion_file" />
+      <button class="btn ghost danger" type="submit">Remove</button>
+    </form>
+    {% endif %}
+  </div>
 </section>
 {% endblock %}

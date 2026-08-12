@@ -1,5 +1,9 @@
 # Two services — bot and web — sharing one SQLite database via a named volume.
 # Either can restart independently.
+#
+# `version` is optional for Compose v2 (`docker compose`) but required by the
+# older standalone v1 (`docker-compose`); keeping it makes the file work with both.
+version: "3.9"
 
 services:
   web:

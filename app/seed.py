@@ -6,9 +6,17 @@ editing content from the dashboard is never overwritten on restart.
 
 from __future__ import annotations
 
-from app.config import settings
+from app.config import BASE_DIR, settings
 from app.database import SessionLocal
 from app.models import AnswerOption, Area, Question, Setting
+
+
+def _bundled_start_image() -> str:
+    """Return a project-root start image filename if one ships with the repo."""
+    for name in ("start.jpeg", "start.jpg", "start.JPEG", "start.JPG", "start.png"):
+        if (BASE_DIR / name).exists():
+            return name
+    return ""
 
 # --- Areas (slug -> display name) -------------------------------------------
 AREAS = [
@@ -72,15 +80,26 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
             "true", "bool", "Require explicit consent", "features",
             "If on, users must accept the data-use notice before registering.",
         ),
-        "send_completion_image": (
-            "true", "bool", "Send image on completion", "features",
-            "Send the uploaded mini-course image after the test.",
+        "send_completion_file": (
+            "true", "bool", "Send file on completion", "features",
+            "Send the uploaded completion file (image or document) after the test.",
+        ),
+        "send_start_image": (
+            "true", "bool", "Show image on welcome", "features",
+            "Show the uploaded start image with the welcome message.",
         ),
         # Texts
         "welcome_text": (
-            "سلام خیلی خوش اومدید و امیدوارم عالی باشید ❤️\n\n"
-            "برای شروع تست اسکن مالی و دریافت مینی دوره رایگان آماده‌اید؟\n\n"
-            "برای دریافت تست و آموزش، لازمه در مراحل بعدی اسم و شماره تلفن در دسترس خودتون رو وارد کنید👇🏼",
+            "سلام، من فاطمه شریفی‌ام؛ مربی رشد مالی و مهارت‌های فردی.\n\n"
+            "اینجا قراره متوجه بشی که چرا با وجود تلاش و درآمد، "
+            "هنوز به رشد مالی‌ای که می‌خوای نرسیدی؟!\n\n"
+            "برای همین یک هدیه برات آماده کردم: "
+            "اسکن مالی + مینی‌دوره رایگان سواد پولی 🎁\n\n"
+            "🔹 اول با تست اسکن مالی، وضعیت و گلوگاه مالیت رو پیدا می‌کنیم\n"
+            "🔹 بعد نتیجه رو تحلیل می‌کنیم\n"
+            "🔹 سپس متوجه میشی چه چیزی جلوی رشد مالیت رو گرفته\n"
+            "🔹 در نهایت یاد میگیری چطور مسیر رشد مالی ساخته میشه\n\n"
+            "اگر آماده‌ای، اسکن مالی‌ات رو شروع کنیم 👇🏻",
             "text", "Welcome message", "content", "",
         ),
         "data_use_purpose": (
@@ -123,13 +142,24 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
         ),
         "completion_caption": (
             "مینی‌دوره آزمایشی شما 🎁",
-            "text", "Completion image caption", "content", "",
+            "text", "Completion file caption", "content", "",
         ),
-        "completion_image_path": (
-            "", "text", "Completion image path", "content",
-            "Set automatically when you upload an image on the Content page.",
+        "completion_file_path": (
+            "", "text", "Completion file", "content",
+            "Set automatically when you upload a file on the Settings page.",
+        ),
+        "start_image_path": (
+            _bundled_start_image(), "text", "Start image", "content",
+            "Set automatically when you upload a start image on the Settings page.",
         ),
     }
+
+
+# Deprecated settings keys -> their replacement, for in-place migration.
+_RENAMED_SETTINGS = {
+    "send_completion_image": "send_completion_file",
+    "completion_image_path": "completion_file_path",
+}
 
 
 def seed_defaults() -> None:
@@ -160,10 +190,33 @@ def seed_defaults() -> None:
                     AnswerOption(label=label, score=score, order=order, is_active=True)
                 )
 
-        # Settings (insert any missing keys, keep existing values)
-        existing = {s.key for s in session.query(Setting.key).all()}
-        for key, (value, vtype, label, group, desc) in _default_settings().items():
-            if key not in existing:
+        # Settings
+        defaults = _default_settings()
+        rows = {s.key: s for s in session.query(Setting).all()}
+
+        # 1) Migrate any deprecated keys to their replacement, preserving values.
+        for old_key, new_key in _RENAMED_SETTINGS.items():
+            old_row = rows.get(old_key)
+            if old_row is None:
+                continue
+            if new_key not in rows and new_key in defaults:
+                value, vtype, label, group, desc = defaults[new_key]
+                migrated = Setting(
+                    key=new_key,
+                    value=old_row.value,  # keep the previously configured value
+                    value_type=vtype,
+                    label=label,
+                    group=group,
+                    description=desc,
+                )
+                session.add(migrated)
+                rows[new_key] = migrated
+            session.delete(old_row)
+            rows.pop(old_key, None)
+
+        # 2) Insert any missing keys, keeping existing values untouched.
+        for key, (value, vtype, label, group, desc) in defaults.items():
+            if key not in rows:
                 session.add(
                     Setting(
                         key=key,

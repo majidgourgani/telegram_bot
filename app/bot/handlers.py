@@ -75,11 +75,72 @@ async def _membership_status(update: Update, context: ContextTypes.DEFAULT_TYPE,
         return None
 
 
-async def _show_main_menu(update: Update, cfg: dict) -> None:
-    await _reply(
-        update,
-        cfg.get("welcome_text", ""),
-        reply_markup=keyboards.main_menu_keyboard(cfg.get("support_link", "")),
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+CAPTION_LIMIT = 1024  # Telegram photo caption max length
+
+
+async def _send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE, cfg: dict) -> None:
+    """Show the welcome/menu, as a photo when a start image is configured.
+
+    When triggered from a button, the previous message is deleted first so the
+    photo posts cleanly (a text message can't be edited into a photo).
+    """
+    chat_id = update.effective_chat.id
+    markup = keyboards.main_menu_keyboard(cfg.get("support_link", ""))
+    text = cfg.get("welcome_text", "")
+
+    if update.callback_query and update.callback_query.message:
+        try:
+            await update.callback_query.message.delete()
+        except TelegramError:
+            pass
+
+    image = _resolve_path(cfg.get("start_image_path", ""))
+    if cfg.get("send_start_image", True) and image and image.exists():
+        caption = text if len(text) <= CAPTION_LIMIT else ""
+        try:
+            with image.open("rb") as photo:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=caption,
+                    reply_markup=markup if caption else None,
+                )
+            if caption:
+                return
+            # Text too long for a caption — send it as a follow-up message.
+            await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+            return
+        except TelegramError:
+            logger.exception("Could not send start image")
+
+    await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup)
+
+
+async def _edit_or_send(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, reply_markup=None):
+    """Update the message behind a callback, robust to media messages.
+
+    A photo/document message can't be edited into text, so in that case (or if
+    the edit otherwise fails) the message is deleted and a fresh one is sent.
+    """
+    query = update.callback_query
+    message = query.message if query else None
+    is_media = bool(
+        message
+        and (message.photo or message.document or message.video or message.animation)
+    )
+    if not is_media:
+        try:
+            return await query.edit_message_text(text, reply_markup=reply_markup)
+        except TelegramError:
+            pass
+    if message:
+        try:
+            await message.delete()
+        except TelegramError:
+            pass
+    return await context.bot.send_message(
+        chat_id=update.effective_chat.id, text=text, reply_markup=reply_markup
     )
 
 
@@ -111,7 +172,7 @@ async def _send_question(update: Update, context: ContextTypes.DEFAULT_TYPE, edi
 # --------------------------------------------------------------------------- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
-    await _show_main_menu(update, _cfg())
+    await _send_welcome(update, context, _cfg())
     return State.MENU
 
 
@@ -119,11 +180,7 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     context.user_data.clear()
-    cfg = _cfg()
-    await query.edit_message_text(
-        cfg.get("welcome_text", ""),
-        reply_markup=keyboards.main_menu_keyboard(cfg.get("support_link", "")),
-    )
+    await _send_welcome(update, context, _cfg())
     return State.MENU
 
 
@@ -139,19 +196,23 @@ async def start_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     if status is True:
         if cfg.get("require_consent", True):
-            await query.edit_message_text("عضویت شما تأیید شد.")
+            await _edit_or_send(update, context, "عضویت شما تأیید شد.")
             await _show_consent(update, cfg)
             return State.ASK_CONSENT
         return await _begin_registration(update, context, cfg, via_edit=True)
 
     if status is False:
-        await query.edit_message_text(
+        await _edit_or_send(
+            update,
+            context,
             "برای شروع تست، ابتدا باید عضو کانال شوید.",
             reply_markup=keyboards.join_keyboard(cfg.get("channel_link", "")),
         )
         return State.CHECK_MEMBERSHIP
 
-    await query.edit_message_text(
+    await _edit_or_send(
+        update,
+        context,
         "در حال حاضر امکان بررسی عضویت شما وجود ندارد. لطفاً کمی بعد دوباره تلاش کنید.",
         reply_markup=keyboards.main_menu_keyboard(cfg.get("support_link", "")),
     )
@@ -162,7 +223,9 @@ async def join_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     query = update.callback_query
     await query.answer()
     cfg = _cfg()
-    await query.edit_message_text(
+    await _edit_or_send(
+        update,
+        context,
         "برای عضویت، روی دکمه زیر بزنید.\n\nبعد از عضویت، گزینه بررسی مجدد را انتخاب کنید.",
         reply_markup=keyboards.join_keyboard(cfg.get("channel_link", "")),
     )
@@ -177,19 +240,23 @@ async def check_membership(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if status is True:
         if cfg.get("require_consent", True):
-            await query.edit_message_text("عضویت شما تأیید شد.")
+            await _edit_or_send(update, context, "عضویت شما تأیید شد.")
             await _show_consent(update, cfg)
             return State.ASK_CONSENT
         return await _begin_registration(update, context, cfg, via_edit=True)
 
     if status is False:
-        await query.edit_message_text(
+        await _edit_or_send(
+            update,
+            context,
             "هنوز عضویت شما تأیید نشده است. لطفاً ابتدا عضو کانال شوید.",
             reply_markup=keyboards.join_keyboard(cfg.get("channel_link", "")),
         )
         return State.CHECK_MEMBERSHIP
 
-    await query.edit_message_text(
+    await _edit_or_send(
+        update,
+        context,
         "بررسی عضویت با خطا مواجه شد. لطفاً دوباره تلاش کنید.",
         reply_markup=keyboards.join_keyboard(cfg.get("channel_link", "")),
     )
@@ -203,7 +270,7 @@ async def _begin_registration(update, context, cfg, via_edit=False) -> int:
     log_event("consent", update.effective_user.id if update.effective_user else None)
     message = "ممنون. لطفاً اطلاعات خود را وارد کنید."
     if via_edit and update.callback_query:
-        await update.callback_query.edit_message_text(message)
+        await _edit_or_send(update, context, message)
     else:
         await _reply(update, message)
     await _reply(update, cfg.get("ask_first_name_text", ""))
@@ -217,7 +284,9 @@ async def give_consent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     status = await _membership_status(update, context, cfg)
     if status is not True:
-        await query.edit_message_text(
+        await _edit_or_send(
+            update,
+            context,
             "برای ادامه باید عضو کانال باشید.",
             reply_markup=keyboards.join_keyboard(cfg.get("channel_link", "")),
         )
@@ -228,14 +297,9 @@ async def give_consent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def cancel_registration(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
-    await query.answer()
+    await query.answer("لغو شد. هیچ اطلاعاتی ذخیره نشد.")
     context.user_data.clear()
-    cfg = _cfg()
-    await query.edit_message_text("لغو شد. هیچ اطلاعاتی ذخیره نشد.")
-    await query.message.reply_text(
-        cfg.get("welcome_text", ""),
-        reply_markup=keyboards.main_menu_keyboard(cfg.get("support_link", "")),
-    )
+    await _send_welcome(update, context, _cfg())
     return State.MENU
 
 
@@ -353,7 +417,7 @@ async def _finish_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     await query.edit_message_text("پاسخ‌های شما ثبت شد.")
     await query.message.reply_text(result_text)
 
-    await _send_completion_image(update, context, cfg)
+    await _send_completion_file(update, context, cfg)
 
     await query.message.reply_text(
         "از منوی زیر می‌توانید دوباره تست را انجام دهید.",
@@ -370,28 +434,36 @@ def _build_result_text(cfg: dict, scores: list[dict]) -> str:
     return "\n".join(lines)
 
 
-async def _send_completion_image(update, context, cfg) -> None:
+async def _send_completion_file(update, context, cfg) -> None:
+    """Send the configured completion file — as a photo if it's an image,
+    otherwise as a document."""
     query = update.callback_query
-    if not cfg.get("send_completion_image", True):
+    if not cfg.get("send_completion_file", True):
         return
 
-    image_path = _resolve_image_path(cfg.get("completion_image_path", ""))
-    if image_path and image_path.exists():
+    file_path = _resolve_path(cfg.get("completion_file_path", ""))
+    caption = cfg.get("completion_caption", "")
+
+    if file_path and file_path.exists():
         try:
-            with image_path.open("rb") as image:
-                await query.message.reply_photo(
-                    photo=image,
-                    caption=cfg.get("completion_caption", ""),
-                )
+            with file_path.open("rb") as handle:
+                if file_path.suffix.lower() in IMAGE_SUFFIXES:
+                    await query.message.reply_photo(photo=handle, caption=caption)
+                else:
+                    await query.message.reply_document(
+                        document=handle,
+                        filename=file_path.name,
+                        caption=caption,
+                    )
             return
         except TelegramError:
-            logger.exception("Could not send completion image")
+            logger.exception("Could not send completion file")
 
-    logger.warning("Completion image missing or unset: %s", image_path)
+    logger.warning("Completion file missing or unset: %s", file_path)
     await query.message.reply_text("مینی‌دوره آزمایشی به‌زودی برای شما ارسال می‌شود.")
 
 
-def _resolve_image_path(raw: str) -> Path | None:
+def _resolve_path(raw: str) -> Path | None:
     if not raw:
         return None
     path = Path(raw)

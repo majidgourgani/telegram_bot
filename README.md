@@ -82,14 +82,15 @@ docker compose up --build
 | **Overview** | Key stats and a bot-configuration health check |
 | **Responses** | Search, browse, inspect and delete submissions; export **CSV / Excel** |
 | **Questions & Content** | Add/edit/reorder questions, manage areas and answer options |
-| **Settings** | Bot token, channel, support links, feature toggles, and all bot texts; upload the completion image |
+| **Settings** | Bot token, channel, support links, feature toggles, and all bot texts; upload the **start image** and the **completion file** to send users |
 | **Analytics** | Responses over time, average score per area, and a start → consent → complete funnel |
 
 ### Feature toggles (Settings → Features)
 
 - **Require channel membership** — gate the test behind joining the channel
 - **Require explicit consent** — show the data-use notice before registration
-- **Send image on completion** — deliver the uploaded mini-course image
+- **Send file on completion** — deliver the uploaded completion file after the test (images are sent as photos, any other file as a document, up to 45 MB)
+- **Show image on welcome** — show the uploaded start image with the welcome message
 
 ## Importing old data
 

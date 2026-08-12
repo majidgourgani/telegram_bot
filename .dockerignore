@@ -1,0 +1,24 @@
+# Keep the build context small and free of secrets / local cruft.
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.git/
+.gitignore
+.env
+*.env
+!.env.example
+data/
+*.db
+*.sqlite*
+users.csv
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store
+.idea/
+.vscode/
+
+# Legacy single-file bot (superseded by the app/ package)
+bot.py
