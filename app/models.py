@@ -155,14 +155,25 @@ class ResponseAreaScore(Base):
 
 
 class CompletionFile(Base):
-    """A file sent to the user after finishing the test. Multiple are allowed."""
+    """Something sent to the user after finishing the test. Multiple allowed.
+
+    Each item is one of two kinds:
+
+    * an **uploaded file** — ``path`` points at a local file (≤50 MB Bot API cap);
+    * a **channel message** — ``source_message_id`` references a message in the
+      configured channel (video, voice, anything), which the bot copies or
+      forwards. This bypasses the upload limit entirely, so large videos work.
+    """
 
     __tablename__ = "completion_files"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    path: Mapped[str] = mapped_column(Text)
+    path: Mapped[str] = mapped_column(Text, default="")
     original_name: Mapped[str] = mapped_column(String(200), default="")
     caption: Mapped[str] = mapped_column(Text, default="")
+    # Channel-message items: id of the source message + how to deliver it.
+    source_message_id: Mapped[Optional[int]] = mapped_column(Integer)
+    send_mode: Mapped[str] = mapped_column(String(16), default="copy")  # copy | forward
     order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

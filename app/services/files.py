@@ -19,6 +19,9 @@ def _to_dict(row: CompletionFile) -> dict[str, Any]:
         "path": row.path,
         "original_name": row.original_name,
         "caption": row.caption,
+        "source_message_id": row.source_message_id,
+        "send_mode": row.send_mode or "copy",
+        "is_channel": row.source_message_id is not None,
         "order": row.order,
         "is_active": row.is_active,
     }
@@ -40,6 +43,26 @@ def add_completion_file(path: str, original_name: str = "", caption: str = "") -
                 path=path,
                 original_name=original_name,
                 caption=caption.strip(),
+                order=max_order + 1,
+                is_active=True,
+            )
+        )
+
+
+def add_channel_message(
+    message_id: int, send_mode: str = "copy", caption: str = ""
+) -> None:
+    """Register a channel message (video/voice/…) to be sent on completion."""
+    mode = "forward" if send_mode == "forward" else "copy"
+    with session_scope() as session:
+        max_order = session.scalar(select(func.max(CompletionFile.order))) or 0
+        session.add(
+            CompletionFile(
+                path="",
+                original_name=f"Channel message #{message_id}",
+                caption=caption.strip(),
+                source_message_id=message_id,
+                send_mode=mode,
                 order=max_order + 1,
                 is_active=True,
             )

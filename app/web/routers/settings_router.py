@@ -135,6 +135,22 @@ async def upload_completion_file(
     return _redirect()
 
 
+@router.post("/completion-files/add-channel")
+async def add_channel_message(
+    user: str = Depends(require_user),
+    link: str = Form(...),
+    send_mode: str = Form("copy"),
+    caption: str = Form(""),
+):
+    # Accept a raw message id or a t.me link; the message id is the trailing
+    # number (e.g. https://t.me/c/2003992197379/45 -> 45).
+    numbers = re.findall(r"\d+", link.split("?")[0])
+    if not numbers:
+        return _redirect(error="Enter+a+message+ID+or+a+t.me+message+link")
+    files.add_channel_message(int(numbers[-1]), send_mode=send_mode, caption=caption)
+    return _redirect()
+
+
 @router.post("/completion-files/{file_id}/update")
 async def update_completion_file(
     file_id: int,

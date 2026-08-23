@@ -377,21 +377,49 @@ def _build_result_text(cfg: dict, scores: list[dict]) -> str:
 
 
 async def _send_completion_files(update, context, cfg) -> None:
-    """Send every active completion file, as a photo (images) or document."""
+    """Send every active completion item after the results.
+
+    Two kinds of item:
+    * uploaded file → sent as a photo (images) or document (≤50 MB);
+    * channel message → copied or forwarded from the configured channel, which
+      has no upload-size limit (so large videos/voice work).
+    """
     query = update.callback_query
+    chat_id = update.effective_chat.id
     if not cfg.get("send_completion_file", True):
         return
 
-    files = list_completion_files(active_only=True)
+    channel_id = cfg.get("channel_id") or 0
+    items = list_completion_files(active_only=True)
     sent_any = False
 
-    for entry in files:
-        path = _resolve_path(entry["path"])
-        if not path or not path.exists():
-            logger.warning("Completion file missing: %s", entry["path"])
-            continue
-        caption = entry.get("caption") or None
+    for entry in items:
         try:
+            if entry.get("is_channel"):
+                if not channel_id:
+                    logger.warning("Channel completion item but channel_id is not set.")
+                    continue
+                message_id = entry["source_message_id"]
+                caption = entry.get("caption") or None
+                if entry.get("send_mode") == "forward":
+                    await context.bot.forward_message(
+                        chat_id=chat_id, from_chat_id=channel_id, message_id=message_id
+                    )
+                else:
+                    await context.bot.copy_message(
+                        chat_id=chat_id,
+                        from_chat_id=channel_id,
+                        message_id=message_id,
+                        caption=caption,
+                    )
+                sent_any = True
+                continue
+
+            path = _resolve_path(entry["path"])
+            if not path or not path.exists():
+                logger.warning("Completion file missing: %s", entry["path"])
+                continue
+            caption = entry.get("caption") or None
             with path.open("rb") as handle:
                 if path.suffix.lower() in IMAGE_SUFFIXES:
                     await query.message.reply_photo(photo=handle, caption=caption)
@@ -401,9 +429,9 @@ async def _send_completion_files(update, context, cfg) -> None:
                     )
             sent_any = True
         except TelegramError:
-            logger.exception("Could not send completion file: %s", entry["path"])
+            logger.exception("Could not send completion item: %s", entry)
 
-    if files and not sent_any:
+    if items and not sent_any:
         await query.message.reply_text("فایل‌های شما به‌زودی ارسال می‌شود.")
 
 

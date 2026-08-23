@@ -71,11 +71,37 @@ def session_scope() -> Iterator[Session]:
         session.close()
 
 
+def _run_lightweight_migrations() -> None:
+    """Add columns introduced after a table was first created.
+
+    ``create_all`` only creates missing *tables*, never missing *columns*, so
+    for SQLite we add them by hand. Idempotent.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    if "completion_files" not in inspector.get_table_names():
+        return
+
+    existing = {col["name"] for col in inspector.get_columns("completion_files")}
+    additions = {
+        "source_message_id": "INTEGER",
+        "send_mode": "VARCHAR(16) DEFAULT 'copy'",
+    }
+    with engine.begin() as conn:
+        for name, ddl in additions.items():
+            if name not in existing:
+                conn.execute(
+                    text(f"ALTER TABLE completion_files ADD COLUMN {name} {ddl}")
+                )
+
+
 def init_db() -> None:
-    """Create tables (idempotent) and seed defaults if the DB is empty."""
+    """Create tables (idempotent), run migrations, and seed defaults."""
     # Import models so they are registered on ``Base.metadata``.
     from app import models  # noqa: F401
     from app.seed import seed_defaults
 
     Base.metadata.create_all(bind=engine)
+    _run_lightweight_migrations()
     seed_defaults()
