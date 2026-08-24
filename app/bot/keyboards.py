@@ -1,10 +1,24 @@
-"""Inline keyboards, built from live settings/content."""
+"""Inline and reply keyboards, built from live settings/content."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
+
+
+def share_phone_keyboard(button_text: str) -> ReplyKeyboardMarkup:
+    """A one-tap reply keyboard that asks the user to share their own number."""
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton(button_text, request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
 
 
 def main_menu_keyboard(support_link: str) -> InlineKeyboardMarkup:

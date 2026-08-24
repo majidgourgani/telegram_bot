@@ -80,6 +80,11 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
             "true", "bool", "Send files on completion", "features",
             "Send the uploaded completion files (images/documents) after the test.",
         ),
+        "phone_via_contact": (
+            "true", "bool", "Ask users to share phone via button", "features",
+            "Show a one-tap “share my number” button instead of asking users to "
+            "type it. Manual typing still works as a fallback.",
+        ),
         "send_start_image": (
             "true", "bool", "Show image on welcome", "features",
             "Show the uploaded start image with the welcome message.",
@@ -109,8 +114,13 @@ def _default_settings() -> dict[str, tuple[str, str, str, str, str]]:
             "text", "Ask full name", "content", "",
         ),
         "ask_phone_text": (
-            "لطفاً شماره تلفن خود را به‌صورت دستی وارد کنید.\n\nمثال:\n+491234567890",
+            "برای دریافت نتیجه‌ی تست، لطفاً شماره‌ی تلفن خود را با دکمه‌ی زیر به اشتراک بگذارید 👇🏼\n\n"
+            "یا می‌توانید شماره را دستی وارد کنید. مثال:\n+491234567890",
             "text", "Ask phone", "content", "",
+        ),
+        "share_phone_button_text": (
+            "📱 اشتراک‌گذاری شماره‌ی من",
+            "text", "Share-phone button label", "content", "",
         ),
         "result_intro": (
             "نتیجه ارزیابی شما آماده است.",

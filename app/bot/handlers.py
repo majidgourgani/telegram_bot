@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from telegram import Update
+from telegram import ReplyKeyboardRemove, Update
 from telegram.error import TelegramError
 from telegram.ext import (
     CallbackQueryHandler,
@@ -266,16 +266,46 @@ async def receive_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data["first_name"] = parts[0]
     context.user_data["last_name"] = parts[1] if len(parts) > 1 else ""
 
-    await _reply(update, _cfg().get("ask_phone_text", ""))
+    await _ask_phone(update, _cfg())
     return State.ASK_PHONE
 
 
+async def _ask_phone(update: Update, cfg: dict) -> None:
+    """Prompt for the phone number, offering a share-contact button if enabled."""
+    text = cfg.get("ask_phone_text", "")
+    if cfg.get("phone_via_contact", True):
+        button = cfg.get("share_phone_button_text") or "📱 اشتراک‌گذاری شماره‌ی من"
+        await _reply(update, text, reply_markup=keyboards.share_phone_keyboard(button))
+    else:
+        await _reply(update, text)
+
+
 async def receive_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    phone_number = normalize_phone_number(update.message.text.strip())
+    """Handle a manually typed phone number."""
+    return await _finalize_phone(update, context, update.message.text.strip())
+
+
+async def receive_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle a number shared via the 'share my phone' button."""
+    contact = update.message.contact
+    return await _finalize_phone(update, context, contact.phone_number if contact else "")
+
+
+async def _finalize_phone(update: Update, context: ContextTypes.DEFAULT_TYPE, raw: str) -> int:
+    cfg = _cfg()
+    phone_number = normalize_phone_number(raw or "")
     if not phone_number:
-        await update.message.reply_text(
-            "شماره تلفن معتبر نیست. لطفاً شماره‌ای بین ۷ تا ۱۵ رقم وارد کنید.\n\n"
-            "مثال:\n+491234567890"
+        await _reply(
+            update,
+            "شماره تلفن معتبر نیست. لطفاً شماره‌ای بین ۷ تا ۱۵ رقم وارد کنید یا از دکمه استفاده کنید.\n\n"
+            "مثال:\n+491234567890",
+            reply_markup=(
+                keyboards.share_phone_keyboard(
+                    cfg.get("share_phone_button_text") or "📱 اشتراک‌گذاری شماره‌ی من"
+                )
+                if cfg.get("phone_via_contact", True)
+                else None
+            ),
         )
         return State.ASK_PHONE
 
@@ -284,8 +314,10 @@ async def receive_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     # Snapshot the quiz so mid-test edits can't corrupt this run.
     snapshot = content.build_quiz_snapshot()
     if not snapshot["questions"] or not snapshot["options"]:
-        await update.message.reply_text(
-            "در حال حاضر سؤالی برای این تست تعریف نشده است. لطفاً بعداً تلاش کنید."
+        await _reply(
+            update,
+            "در حال حاضر سؤالی برای این تست تعریف نشده است. لطفاً بعداً تلاش کنید.",
+            reply_markup=ReplyKeyboardRemove(),
         )
         context.user_data.clear()
         return State.MENU
@@ -294,6 +326,8 @@ async def receive_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     context.user_data["answers"] = {}
     context.user_data["question_index"] = 0
 
+    # Clear the custom reply keyboard before showing the (inline) questions.
+    await _reply(update, "شماره‌ی شما ثبت شد ✅", reply_markup=ReplyKeyboardRemove())
     await _send_question(update, context, edit=False)
     return State.QUESTION
 
@@ -468,6 +502,7 @@ def build_conversation() -> ConversationHandler:
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_name),
             ],
             State.ASK_PHONE: [
+                MessageHandler(filters.CONTACT, receive_contact),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, receive_phone),
             ],
             State.QUESTION: [
