@@ -98,11 +98,13 @@ def _blocked_ids(session) -> set[int]:
     return set(rows)
 
 
-def resolve_recipient_ids(target: str) -> list[int]:
+def resolve_recipient_ids(target: str, recipient_ids: list[int] | None = None) -> list[int]:
     """Distinct, reachable (non-blocked) user ids for the given audience."""
     with session_scope() as session:
         blocked = _blocked_ids(session)
-        if target == "completed":
+        if target == "custom":
+            rows = recipient_ids or []
+        elif target == "completed":
             rows = session.scalars(
                 select(Response.telegram_user_id)
                 .where(Response.telegram_user_id.is_not(None))
@@ -113,6 +115,45 @@ def resolve_recipient_ids(target: str) -> list[int]:
                 select(BotUser.telegram_user_id).where(BotUser.is_blocked.is_(False))
             ).all()
         return sorted({uid for uid in rows if uid and uid not in blocked})
+
+
+def resolve_usernames(usernames: list[str]) -> tuple[list[tuple[int, str]], list[str]]:
+    """Map @usernames to (user_id, original) pairs. Returns (found, not_found).
+
+    Only users who have interacted with the bot can be resolved (and messaged).
+    Matches case-insensitively against ``bot_users`` then ``responses``.
+    """
+    wanted: dict[str, str] = {}
+    for raw in usernames:
+        key = raw.strip().lstrip("@").lower()
+        if key:
+            wanted.setdefault(key, raw.strip().lstrip("@"))
+    if not wanted:
+        return [], []
+
+    found: dict[str, int] = {}
+    with session_scope() as session:
+        for uid, uname in session.execute(
+            select(BotUser.telegram_user_id, BotUser.username).where(
+                BotUser.username.is_not(None)
+            )
+        ).all():
+            key = uname.lower()
+            if key in wanted and key not in found:
+                found[key] = uid
+        for uid, uname in session.execute(
+            select(Response.telegram_user_id, Response.telegram_username).where(
+                Response.telegram_username.is_not(None),
+                Response.telegram_user_id.is_not(None),
+            )
+        ).all():
+            key = uname.lower()
+            if key in wanted and key not in found:
+                found[key] = uid
+
+    found_pairs = [(found[k], wanted[k]) for k in wanted if k in found]
+    not_found = [wanted[k] for k in wanted if k not in found]
+    return found_pairs, not_found
 
 
 def count_recipients(target: str) -> int:
@@ -147,11 +188,21 @@ def create_broadcast(
     add_button: bool,
     button_text: str,
     created_by: str,
+    recipient_ids: list[int] | None = None,
 ) -> int:
+    if target == "custom":
+        normalized = "custom"
+        ids_str = ",".join(str(i) for i in (recipient_ids or []))
+    elif target == "completed":
+        normalized, ids_str = "completed", ""
+    else:
+        normalized, ids_str = "all", ""
+
     with session_scope() as session:
         row = Broadcast(
             message=message,
-            target="completed" if target == "completed" else "all",
+            target=normalized,
+            recipient_ids=ids_str,
             add_button=add_button,
             button_text=button_text.strip(),
             status="pending",
@@ -162,11 +213,24 @@ def create_broadcast(
         return row.id
 
 
+def _parse_ids(raw: str) -> list[int]:
+    out = []
+    for part in (raw or "").split(","):
+        part = part.strip()
+        if part:
+            try:
+                out.append(int(part))
+            except ValueError:
+                pass
+    return out
+
+
 def _to_dict(row: Broadcast) -> dict[str, Any]:
     return {
         "id": row.id,
         "message": row.message,
         "target": row.target,
+        "recipient_ids": _parse_ids(row.recipient_ids),
         "add_button": row.add_button,
         "button_text": row.button_text,
         "status": row.status,

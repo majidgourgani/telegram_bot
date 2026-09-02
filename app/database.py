@@ -80,20 +80,26 @@ def _run_lightweight_migrations() -> None:
     from sqlalchemy import inspect, text
 
     inspector = inspect(engine)
-    if "completion_files" not in inspector.get_table_names():
-        return
+    tables = set(inspector.get_table_names())
 
-    existing = {col["name"] for col in inspector.get_columns("completion_files")}
-    additions = {
-        "source_message_id": "INTEGER",
-        "send_mode": "VARCHAR(16) DEFAULT 'copy'",
+    per_table = {
+        "completion_files": {
+            "source_message_id": "INTEGER",
+            "send_mode": "VARCHAR(16) DEFAULT 'copy'",
+        },
+        "broadcasts": {
+            "recipient_ids": "TEXT DEFAULT ''",
+        },
     }
+
     with engine.begin() as conn:
-        for name, ddl in additions.items():
-            if name not in existing:
-                conn.execute(
-                    text(f"ALTER TABLE completion_files ADD COLUMN {name} {ddl}")
-                )
+        for table, additions in per_table.items():
+            if table not in tables:
+                continue
+            existing = {col["name"] for col in inspector.get_columns(table)}
+            for name, ddl in additions.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))
 
 
 def init_db() -> None:

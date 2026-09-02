@@ -33,7 +33,7 @@ _PROGRESS_EVERY = 25  # persist progress every N sends
 
 
 async def _deliver_broadcast(bot, job: dict) -> None:
-    recipients = broadcast.resolve_recipient_ids(job["target"])
+    recipients = broadcast.resolve_recipient_ids(job["target"], job.get("recipient_ids"))
     broadcast.set_total(job["id"], len(recipients))
 
     markup = None

@@ -4,6 +4,8 @@
 {% block content %}
 
 {% if queued %}<p class="alert ok">Message queued. The bot is delivering it now — progress updates below (refresh to see it).</p>{% endif %}
+{% if missing %}<p class="alert error">Skipped (these users haven't started the bot, so it can't message them): {{ missing }}</p>{% endif %}
+{% if error %}<p class="alert error">{{ error }}</p>{% endif %}
 
 <section class="cards">
   <div class="card stat"><span class="stat-label">Reachable users</span><span class="stat-value">{{ counts.all }}</span></div>
@@ -22,8 +24,13 @@
 
     <div class="field">
       <label>Audience</label>
-      <label class="radio"><input type="radio" name="target" value="all" checked /> Everyone who used the bot ({{ counts.all }})</label>
-      <label class="radio"><input type="radio" name="target" value="completed" /> Only those who finished the test ({{ counts.completed }})</label>
+      <label class="radio"><input type="radio" name="target" value="custom" checked onchange="document.getElementById('usernames-row').hidden=false" /> <strong>Specific usernames (test)</strong> — safest for a trial run</label>
+      <label class="radio"><input type="radio" name="target" value="all" onchange="document.getElementById('usernames-row').hidden=true" /> Everyone who used the bot ({{ counts.all }})</label>
+      <label class="radio"><input type="radio" name="target" value="completed" onchange="document.getElementById('usernames-row').hidden=true" /> Only those who finished the test ({{ counts.completed }})</label>
+      <div id="usernames-row" style="margin-top:10px">
+        <input type="text" name="usernames" dir="ltr" placeholder="@ftmsharifi, @Majid_grki" />
+        <p class="field-hint">Comma- or space-separated. Each person must have <strong>started the bot at least once</strong> (tap Start) — otherwise Telegram won't let the bot message them and they'll be skipped.</p>
+      </div>
     </div>
 
     <div class="field">
@@ -48,7 +55,7 @@
       <tr>
         <td class="muted">{{ b.id }}</td>
         <td class="muted">{{ b.created_at|dt }}</td>
-        <td>{{ 'Completed' if b.target == 'completed' else 'Everyone' }}</td>
+        <td>{% if b.target == 'custom' %}Test ({{ b.recipient_ids|length }}){% elif b.target == 'completed' %}Completed{% else %}Everyone{% endif %}</td>
         <td>
           {% if b.status == 'done' %}<span class="badge ok">done</span>
           {% elif b.status == 'sending' %}<span class="badge sending">sending…</span>

@@ -222,8 +222,11 @@ class Broadcast(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     message: Mapped[str] = mapped_column(Text)
-    # Audience: "all" (everyone) or "completed" (finished the test).
+    # Audience: "all" (everyone), "completed" (finished the test), or
+    # "custom" (a specific list of ids in ``recipient_ids``).
     target: Mapped[str] = mapped_column(String(16), default="all")
+    # Comma-separated user ids, used only when target == "custom".
+    recipient_ids: Mapped[str] = mapped_column(Text, default="")
     add_button: Mapped[bool] = mapped_column(Boolean, default=False)
     button_text: Mapped[str] = mapped_column(String(120), default="")
     # pending | sending | done
