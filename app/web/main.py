@@ -14,6 +14,7 @@ from app.database import init_db
 from app.web.routers import (
     analytics,
     auth,
+    broadcast,
     dashboard,
     questions,
     responses,
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(questions.router)
     app.include_router(settings_router.router)
     app.include_router(analytics.router)
+    app.include_router(broadcast.router)
 
     return app
 

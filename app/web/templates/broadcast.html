@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Broadcast{% endblock %}
+{% block heading %}Broadcast{% endblock %}
+{% block content %}
+
+{% if queued %}<p class="alert ok">Message queued. The bot is delivering it now — progress updates below (refresh to see it).</p>{% endif %}
+
+<section class="cards">
+  <div class="card stat"><span class="stat-label">Reachable users</span><span class="stat-value">{{ counts.all }}</span></div>
+  <div class="card stat"><span class="stat-label">Finished the test</span><span class="stat-value">{{ counts.completed }}</span></div>
+  <div class="card stat"><span class="stat-label">Blocked the bot</span><span class="stat-value">{{ counts.blocked }}</span></div>
+</section>
+
+<section class="card">
+  <h3>New broadcast</h3>
+  <form method="post" action="/broadcast">
+    <div class="field">
+      <label for="message">Message</label>
+      <textarea id="message" name="message" rows="5" dir="auto" required
+        placeholder="مثلاً: سلام! فراموش نکن که کانال ما رو چک کنی 👇"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Audience</label>
+      <label class="radio"><input type="radio" name="target" value="all" checked /> Everyone who used the bot ({{ counts.all }})</label>
+      <label class="radio"><input type="radio" name="target" value="completed" /> Only those who finished the test ({{ counts.completed }})</label>
+    </div>
+
+    <div class="field">
+      <label class="switch"><input type="checkbox" name="add_button" id="add_button" /> <span>Add a “join channel” button below the message</span></label>
+      <input type="text" name="button_text" placeholder="Button label (default: عضویت در کانال)" style="margin-top:8px" />
+      <p class="field-hint">The button links to your configured channel invite link (Settings → Channel invite link).</p>
+    </div>
+
+    <button class="btn primary" type="submit" onclick="return confirm('Send this message to the selected audience?')">Queue &amp; send</button>
+    <p class="field-hint">Sending is throttled (~20 msgs/sec) to respect Telegram limits, so a large audience takes a little while. Users who blocked the bot are skipped automatically.</p>
+  </form>
+</section>
+
+<section class="card table-card">
+  <h3>History</h3>
+  <table>
+    <thead>
+      <tr><th>#</th><th>When</th><th>Audience</th><th>Status</th><th>Progress</th><th>Message</th></tr>
+    </thead>
+    <tbody>
+      {% for b in broadcasts %}
+      <tr>
+        <td class="muted">{{ b.id }}</td>
+        <td class="muted">{{ b.created_at|dt }}</td>
+        <td>{{ 'Completed' if b.target == 'completed' else 'Everyone' }}</td>
+        <td>
+          {% if b.status == 'done' %}<span class="badge ok">done</span>
+          {% elif b.status == 'sending' %}<span class="badge sending">sending…</span>
+          {% else %}<span class="badge">pending</span>{% endif %}
+        </td>
+        <td class="muted">{{ b.sent }} sent{% if b.failed %}, {{ b.failed }} failed{% endif %}{% if b.total %} / {{ b.total }}{% endif %}</td>
+        <td class="msg-cell" dir="auto">{{ b.message[:80] }}{{ '…' if b.message|length > 80 }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" class="empty">No broadcasts yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -29,6 +29,7 @@ from app.bot.states import State
 from app.bot.utils import normalize_phone_number, round_half_up, to_persian_digits
 from app.config import BASE_DIR
 from app.services import content
+from app.services.broadcast import upsert_bot_user
 from app.services.files import list_completion_files
 from app.services.responses import log_event, save_response
 
@@ -53,6 +54,13 @@ async def _reply(update: Update, text: str, **kwargs):
 
 def _cfg() -> dict:
     return content.get_settings_dict()
+
+
+def _track(update: Update) -> None:
+    """Record the user as a reachable broadcast recipient."""
+    user = update.effective_user
+    if user is not None:
+        upsert_bot_user(user.id, user.username, user.first_name)
 
 
 async def _edit_own_message(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, reply_markup=None):
@@ -163,6 +171,7 @@ async def _send_question(update: Update, context: ContextTypes.DEFAULT_TYPE, edi
 # --------------------------------------------------------------------------- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
+    _track(update)
     await _send_welcome(update, context, _cfg())
     return State.MENU
 
@@ -179,6 +188,7 @@ async def start_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
     context.user_data.clear()
+    _track(update)
 
     cfg = _cfg()
     log_event("start_test", update.effective_user.id if update.effective_user else None)

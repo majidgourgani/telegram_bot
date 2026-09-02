@@ -240,3 +240,11 @@ canvas { width: 100%; }
 .add-grid h4 { margin: 0 0 8px; font-size: 13px; }
 .add-grid select { max-width: 260px; }
 @media (max-width: 820px) { .add-grid { grid-template-columns: 1fr; } }
+
+/* Broadcast page */
+.radio { display: flex; align-items: center; gap: 8px; font-weight: 500; margin-bottom: 6px; }
+.radio input { width: auto; }
+.badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+.badge.ok { background: rgba(47,179,68,.14); color: var(--ok); border-color: transparent; }
+.badge.sending { background: rgba(79,124,255,.14); color: var(--accent); border-color: transparent; }
+.msg-cell { max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

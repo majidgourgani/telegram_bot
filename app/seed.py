@@ -254,3 +254,8 @@ def seed_defaults() -> None:
                 )
 
         session.commit()
+
+    # Make historical users reachable for broadcasts (idempotent).
+    from app.services.broadcast import backfill_bot_users
+
+    backfill_bot_users()

@@ -190,3 +190,50 @@ class Event(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_utcnow, index=True
     )
+
+
+class BotUser(Base):
+    """Every person who has interacted with the bot — the broadcast audience.
+
+    A bot may only message users who have started it and not blocked it, so this
+    is the set of reachable recipients.
+    """
+
+    __tablename__ = "bot_users"
+
+    telegram_user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    username: Mapped[Optional[str]] = mapped_column(String(120))
+    first_name: Mapped[Optional[str]] = mapped_column(String(120))
+    is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+
+class Broadcast(Base):
+    """A message the admin queues to send to many users.
+
+    Created (status ``pending``) from the dashboard; the bot process picks it up,
+    sends it out, and records progress.
+    """
+
+    __tablename__ = "broadcasts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message: Mapped[str] = mapped_column(Text)
+    # Audience: "all" (everyone) or "completed" (finished the test).
+    target: Mapped[str] = mapped_column(String(16), default="all")
+    add_button: Mapped[bool] = mapped_column(Boolean, default=False)
+    button_text: Mapped[str] = mapped_column(String(120), default="")
+    # pending | sending | done
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    total: Mapped[int] = mapped_column(Integer, default=0)
+    sent: Mapped[int] = mapped_column(Integer, default=0)
+    failed: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, index=True
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
